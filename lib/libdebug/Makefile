@@ -1,9 +1,10 @@
 
 LIB=		debug
 SHLIB_MAJOR=	1
+INCSDIR=	${INCLUDEDIR}/libdebug
 
 SRCS=	debug.c
-HDRS=	debug.h
+INCS=	debug.h
 
 MK_MAN=no
 
