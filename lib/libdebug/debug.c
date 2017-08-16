@@ -34,7 +34,8 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <errno.h>
-#include <time.h>
+
+#include "os/time.h"
 
 #include <err.h>
 
@@ -531,7 +532,7 @@ debug_run_thread(void *arg)
 
 		/* Only wait if the list is empty */
 		if (ds->nitems == 0) {
-			clock_gettime(CLOCK_REALTIME, &ts);
+			OS_clock_gettime(CLOCK_REALTIME, &ts);
 			ts.tv_sec += 5;
 			ret = pthread_cond_timedwait(&ds->log_cond, &ds->debug_lock, &ts);
 			if (ret == EWOULDBLOCK && ds->nitems == 0)

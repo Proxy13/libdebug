@@ -3,6 +3,8 @@ LIB=		debug
 SHLIB_MAJOR=	1
 INCSDIR=	${INCLUDEDIR}/libdebug
 
+CFLAGS+=	-I../libdebug_hal/
+
 SRCS=	debug.c
 HDRS=	debug_internal.h
 INCS=	debug.h
