@@ -54,6 +54,9 @@
  */
 char * debug_level_strs[DEBUG_SECTION_MAX];
 debug_mask_t debug_levels[DEBUG_TYPE_MAX][DEBUG_SECTION_MAX];
+static debug_mask_t default_lvl_print = DEBUG_LVL_INFO | DEBUG_LVL_CRIT | DEBUG_LVL_ERR;
+static debug_mask_t default_lvl_log = 0;
+static debug_mask_t default_lvl_syslog = 0;
 
 /*
  * XXX TODO: The locking is very simplistic for now.
@@ -79,9 +82,9 @@ debug_register(const char *dbgname)
 		if (debug_level_strs[i] == NULL) {
 			debug_level_strs[i] = strdup(dbgname);
 			/* Default to logging info/err/crit to stderr */
-			debug_levels[DEBUG_TYPE_PRINT][i] = DEBUG_LVL_INFO | DEBUG_LVL_CRIT | DEBUG_LVL_ERR;
-			debug_levels[DEBUG_TYPE_LOG][i] = 0x0;
-			debug_levels[DEBUG_TYPE_SYSLOG][i] = 0x0;
+			debug_levels[DEBUG_TYPE_PRINT][i] = default_lvl_print;
+			debug_levels[DEBUG_TYPE_LOG][i] = default_lvl_log;
+			debug_levels[DEBUG_TYPE_SYSLOG][i] = default_lvl_syslog;
 
 			return (i);
 		}
@@ -96,6 +99,72 @@ debug_register(const char *dbgname)
 	return (-1);
 }
 
+void
+debug_setlevel_default(debug_type_t t, debug_mask_t m)
+{
+	switch (t) {
+	case DEBUG_TYPE_PRINT:
+		default_lvl_print = m;
+		break;
+	case DEBUG_TYPE_LOG:
+		default_lvl_log = m;
+		break;
+	case DEBUG_TYPE_SYSLOG:
+		default_lvl_syslog = m;
+		break;
+	default:
+		fprintf(stderr, "%s: unknown debug type (%d)\n",
+		    __func__, t);
+		break;
+	}
+}
+
+/*
+ * For all debug sections, mask in the source type from the
+ * destination type with an optional AND and OR to do some filtering.
+ */
+void
+debug_setlevel_maskcopy(debug_type_t st, debug_type_t dt, debug_mask_t ma,
+    debug_mask_t mo)
+{
+	int i;
+	debug_mask_t m;
+
+	(void) pthread_mutex_lock(&debugInstance.debug_lock);
+	for (i = 0; i < DEBUG_SECTION_MAX; i++) {
+		if (debug_level_strs[i] == NULL)
+			continue;
+		m = debug_levels[st][i];
+		m &= ma;
+		m |= mo;
+		debug_levels[dt][i] = m;
+	}
+
+	(void) pthread_mutex_unlock(&debugInstance.debug_lock);
+}
+
+/*
+ * For all debug sections, do the following AND and OR values.
+ * This allows for globally adding/removing flags as appropriate.
+ */
+void
+debug_setlevel_mask(debug_type_t st, debug_mask_t ma, debug_mask_t mo)
+{
+	int i;
+	debug_mask_t m;
+
+	(void) pthread_mutex_lock(&debugInstance.debug_lock);
+	for (i = 0; i < DEBUG_SECTION_MAX; i++) {
+		if (debug_level_strs[i] == NULL)
+			continue;
+		m = debug_levels[st][i];
+		m &= ma;
+		m |= mo;
+		debug_levels[st][i] = m;
+	}
+
+	(void) pthread_mutex_unlock(&debugInstance.debug_lock);
+}
 void
 debug_setlevel(debug_section_t s, debug_type_t t, debug_mask_t mask)
 {
@@ -326,7 +395,8 @@ debug_instance_log_entry_locked(struct debug_instance *ds, struct debug_entry *d
 	}
 	if (ds->debug_syslog_enable == 1 &&
 	    debug_levels[DEBUG_TYPE_SYSLOG][de->debug_section] & de->debug_mask) {
-		/* XXX should map these levels into syslog levels */
+		/* XXX TODO should map these levels into syslog levels */
+		/* XXX TODO: syslog facility name, etc, etc */
 		syslog(LOG_DEBUG, "%s%s", tbuf, de->buf);
 		ret |= 1 << DEBUG_TYPE_SYSLOG;
 	}
@@ -532,7 +602,7 @@ debug_run_thread(void *arg)
 
 		/* Only wait if the list is empty */
 		if (ds->nitems == 0) {
-			OS_clock_gettime(CLOCK_REALTIME, &ts);
+			clock_gettime(CLOCK_REALTIME, &ts);
 			ts.tv_sec += 5;
 			ret = pthread_cond_timedwait(&ds->log_cond, &ds->debug_lock, &ts);
 			if (ret == EWOULDBLOCK && ds->nitems == 0)
@@ -603,7 +673,23 @@ debug_init(const char *progname)
 	bzero(debug_level_strs, sizeof(debug_level_strs));
 	bzero(debug_levels, sizeof(debug_levels));
 
+	/* Enable syslog debugging by default */
 	openlog(progname, LOG_NDELAY | LOG_NOWAIT | LOG_PID, LOG_DAEMON);
+	debugInstance.debug_syslog_enable = 1;
+}
+
+void
+debug_syslog_enable(void)
+{
+
+	debugInstance.debug_syslog_enable = 1;
+}
+
+void
+debug_syslog_disable(void)
+{
+
+	debugInstance.debug_syslog_enable = 0;
 }
 
 static void

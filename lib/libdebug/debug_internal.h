@@ -27,11 +27,11 @@ struct debug_instance {
 	int debug_syslog_facility;
 	int debug_syslog_logopt;
 	char *debug_syslog_ident;
+	int debug_syslog_enable;
 
 	/* File logging configuration */
 	FILE *debug_file;
 	char *debug_filename;
-	int debug_syslog_enable;
 };
 
 #endif

@@ -48,6 +48,8 @@ typedef enum {
 typedef int debug_section_t;
 typedef uint64_t debug_mask_t;
 
+#define	DEBUG_MASK_ALL	(uint64_t) 0xffffffffffffffffULL
+
 #define	DEBUG_SECTION_UNINIT	-1
 
 extern	char *debug_level_strs[DEBUG_SECTION_MAX];
@@ -55,11 +57,18 @@ extern	debug_mask_t debug_levels[DEBUG_TYPE_MAX][DEBUG_SECTION_MAX];
 
 extern	void debug_init(const char *progname);
 extern	void debug_shutdown(void);
+extern	void debug_setlevel_default(debug_type_t t, debug_mask_t m);
+extern	void debug_setlevel_maskcopy(debug_type_t st, debug_type_t dt,
+	    debug_mask_t ma, debug_mask_t mo);
+extern	void debug_setlevel_mask(debug_type_t st, debug_mask_t ma,
+	    debug_mask_t mo);
 extern	debug_section_t debug_register(const char *dbgname);
 extern	void debug_setmask(debug_section_t s, debug_type_t t,
 	    debug_mask_t mask);
 extern	void debug_setmask_str(const char *dbg, debug_type_t t,
 	    debug_mask_t mask);
+extern	void debug_syslog_enable(void);
+extern	void debug_syslog_disable(void);
 
 extern	void debug_set_filename(const char *filename);
 extern	void debug_file_open(void);
